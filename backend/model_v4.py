@@ -88,23 +88,22 @@ class ModelV4Manager:
         print("🚀 Loading V4 Hybrid Model components...")
         
         # ── HF Hub Integration ──────────────────────────────────────────
-        repo_id = os.environ.get('HF_REPO_ID')
+        # Try to get repo_id, stripping any accidental whitespace from Render UI
+        repo_id = (os.environ.get('HF_REPO_ID') or "").strip()
+        
         if repo_id:
             from huggingface_hub import hf_hub_download
-            print(f"📦 Pulling weights from HuggingFace: {repo_id}")
+            print(f"📦 HuggingFace ID found: '{repo_id}'. Pulling weights...")
             try:
-                # Sync files from HF if they are missing or if we are in production
-                h_config = hf_hub_download(repo_id=repo_id, filename="config.joblib")
-                h_feature = hf_hub_download(repo_id=repo_id, filename="feature_scaler.joblib")
-                h_target = hf_hub_download(repo_id=repo_id, filename="target_scaler.joblib")
-                h_xgb = hf_hub_download(repo_id=repo_id, filename="xgb_v4.joblib")
-                
                 # Update local paths to HF downloaded cache
                 global CONFIG_PATH, FEATURE_SCALER_PATH, TARGET_SCALER_PATH, XGB_MODEL_PATH, DL_MODEL_PATHS
-                CONFIG_PATH = h_config
-                FEATURE_SCALER_PATH = h_feature
-                TARGET_SCALER_PATH = h_target
-                XGB_MODEL_PATH = h_xgb
+                
+                CONFIG_PATH = hf_hub_download(repo_id=repo_id, filename="config.joblib")
+                FEATURE_SCALER_PATH = hf_hub_download(repo_id=repo_id, filename="feature_scaler.joblib")
+                TARGET_SCALER_PATH = hf_hub_download(repo_id=repo_id, filename="target_scaler.joblib")
+                XGB_MODEL_PATH = hf_hub_download(repo_id=repo_id, filename="xgb_v4.joblib")
+                
+                print(f"✅ Core models pulled. Syncing ensemble...")
                 
                 # Sync DL ensemble
                 new_dl_paths = []
@@ -112,8 +111,12 @@ class ModelV4Manager:
                     fname = f"residual_ensemble_seed_{i}.pth"
                     new_dl_paths.append(hf_hub_download(repo_id=repo_id, filename=fname))
                 DL_MODEL_PATHS = new_dl_paths
+                print("✨ All cloud weights synchronized.")
             except Exception as e:
-                print(f"⚠️ HF Pull failed: {e}. Falling back to local files.")
+                print(f"⚠️ HuggingFace Sync failed: {e}")
+                print("🔍 Falling back to local files (might fail in production).")
+        else:
+            print("ℹ️ No HF_REPO_ID found in environment variables. Using local paths.")
 
         # 1. Load config and scalers
         self.config = joblib.load(CONFIG_PATH)
