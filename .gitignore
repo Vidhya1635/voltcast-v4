@@ -7,14 +7,18 @@ venv/
 ENV/
 .env
 
-# Models & Data (Stored on HuggingFace/Drive instead)
+# Models (Stored on HuggingFace instead)
 *.joblib
 *.pth
 *.h5
 *.pkl
 *.sqlite
 *.db
-data/
+
+# Data (Whitelist essential CSV)
+!data/
+!data/preprocessed_load_data.csv
+
 models/
 database/
 
