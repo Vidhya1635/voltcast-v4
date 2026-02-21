@@ -1,0 +1,14 @@
+flask
+flask-cors
+pandas
+numpy
+torch
+torchvision
+torchaudio
+xgboost
+joblib
+requests
+scikit-learn
+python-dateutil
+gunicorn
+huggingface_hub

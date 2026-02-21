@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+.env
+
+# Models & Data (Stored on HuggingFace/Drive instead)
+*.joblib
+*.pth
+*.h5
+*.pkl
+*.sqlite
+*.db
+data/
+models/
+database/
+
+# Node / Frontend
+node_modules/
+dist/
+.vite/
+.vscode/
+
+# System
+.DS_Store
+Thumbs.db
+ngrok.exe
+ngrok.zip
+
+# Logs
+*.log
