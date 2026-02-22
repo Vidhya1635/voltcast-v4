@@ -119,6 +119,7 @@ class ModelV4Manager:
             print("ℹ️ No HF_REPO_ID found. Using local paths.")
 
         import time, gc
+        is_cloud = os.environ.get('RENDER') or os.environ.get('PORT')
         
         # 1. Load config and scalers
         self.config = joblib.load(CONFIG_PATH)
@@ -126,18 +127,23 @@ class ModelV4Manager:
         self.target_scaler = joblib.load(TARGET_SCALER_PATH)
         print("📊 Scalers ready...")
         gc.collect()
-        time.sleep(1) # Let server breathe
 
         # 2. Load XGBoost
         self.xgb_model = joblib.load(XGB_MODEL_PATH)
         print("🌲 XGBoost ready...")
         gc.collect()
-        time.sleep(2) # XGB is heavy, wait longer
 
-        # 3. Load DL Ensemble (3 models)
-        # Load them one-by-one with pauses
+        # 3. Load DL Ensemble
+        # Cloud-Adaptive Logic: Only load 1 model on Render to stay under 512MB RAM
+        # Load full 3-model ensemble on Localhost for max power.
         n_feat_aug = self.config['N_FEATURES'] + 1 
-        for i, path in enumerate(DL_MODEL_PATHS):
+        ensemble_limit = 1 if is_cloud else len(DL_MODEL_PATHS)
+        
+        if is_cloud:
+            print("☁️ Cloud Detected: Running in 'Lite Mode' (1-Model Ensemble) to save RAM.")
+        
+        for i in range(ensemble_limit):
+            path = DL_MODEL_PATHS[i]
             model = ResidualPredictor(
                 n_features=n_feat_aug,
                 pred_len=self.config['OUTPUT_LEN']
@@ -145,12 +151,12 @@ class ModelV4Manager:
             model.load_state_dict(torch.load(path, map_location=self.device, weights_only=True))
             model.eval()
             self.dl_ensemble.append(model)
-            print(f"🧠 DL Model {i+1}/3 ready...")
+            print(f"🧠 DL Model {i+1}/{ensemble_limit} ready...")
             gc.collect()
-            time.sleep(1.5) # Protect against OOM spike
+            time.sleep(1) 
             
         self.loaded = True
-        print("✅ Engine Fully Synchronized.")
+        print(f"✅ Engine Sync Complete ({'Lite' if is_cloud else 'Full'} Mode).")
         gc.collect()
 
     def predict(self, X_window_raw):
