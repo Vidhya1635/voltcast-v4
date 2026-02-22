@@ -129,13 +129,17 @@
 
 <script setup>
 import { ref, onMounted, nextTick } from 'vue';
-import { TrendingDown, Activity, Zap, BarChart3, Settings as SettingsIcon } from 'lucide-vue-next';
+import { 
+  TrendingDown, Activity, Zap, BarChart3, 
+  Settings as SettingsIcon, Radio, AlertTriangle, Info 
+} from 'lucide-vue-next';
 import api from '@/api';
 import * as echarts from 'echarts';
 
 const metrics = ref(null);
 const liveMetrics = ref(null);
 
+const fetchData = async () => {
   try {
     const [statsRes, liveRes] = await Promise.all([
       api.get('/api/evaluation'),
@@ -149,8 +153,10 @@ const liveMetrics = ref(null);
   }
 };
 
+onMounted(fetchData);
+
 const computeLift = (baseKey, targetKey, metric) => {
-    if (!metrics.value[baseKey] || !metrics.value[targetKey]) return "0.0";
+    if (!metrics.value || !metrics.value[baseKey] || !metrics.value[targetKey]) return "0.0";
     const base = metrics.value[baseKey][metric];
     const target = metrics.value[targetKey][metric];
     return (((base - target) / base) * 100).toFixed(2);
@@ -158,158 +164,161 @@ const computeLift = (baseKey, targetKey, metric) => {
 
 const initHorizonChart = () => {
     const chartDom = document.getElementById('horizonChart');
-    if (!chartDom) return;
+    if (!chartDom || !metrics.value) return;
     const chart = echarts.init(chartDom, 'dark');
-    
-    const hData = metrics.value.horizon_wise;
-    const xAxis = Object.keys(hData).map(k => `+${k}h`);
-    const values = Object.values(hData).map(v => v.MAE);
+
+    const horizon = Array.from({length: 168}, (_, i) => i + 1);
+    const xgbError = metrics.value.error_by_horizon?.xgb || [];
+    const hybridError = metrics.value.error_by_horizon?.hybrid || [];
 
     chart.setOption({
         backgroundColor: 'transparent',
-        tooltip: { 
-          trigger: 'axis',
-          backgroundColor: '#1e293b',
-          borderColor: '#334155',
-          textStyle: { color: '#f8fafc' }
-        },
-        grid: { left: '4%', right: '4%', bottom: '10%', top: '10%', containLabel: true },
-        xAxis: { 
-          type: 'category', 
-          data: xAxis, 
-          axisLine: { lineStyle: { color: '#334155' } },
-          axisLabel: { color: '#94a3b8' }
-        },
-        yAxis: { 
-          type: 'value', 
-          name: 'MAE (MW)', 
-          splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
-          axisLabel: { color: '#94a3b8' }
-        },
-        series: [{
-            name: 'Prediction Error',
-            data: values,
-            type: 'bar',
-            barWidth: '40%',
-            itemStyle: { 
-              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: '#6366f1' },
-                { offset: 1, color: '#a855f7' }
-              ]),
-              borderRadius: [6, 6, 0, 0] 
-            },
-            emphasis: { itemStyle: { color: '#818cf8' } }
-        }]
+        tooltip: { trigger: 'axis' },
+        legend: { data: ['XGBoost MAE', 'Hybrid V4 MAE'], textStyle: { color: '#94a3b8' } },
+        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+        xAxis: { type: 'category', data: horizon, axisLabel: { color: '#94a3b8' } },
+        yAxis: { type: 'value', name: 'MAE (MW)', axisLabel: { color: '#94a3b8' }, splitLine: { lineStyle: { color: '#1e293b' } } },
+        series: [
+            { name: 'XGBoost MAE', type: 'line', data: xgbError, smooth: true, lineStyle: { color: '#f43f5e' }, itemStyle: { color: '#f43f5e' } },
+            { name: 'Hybrid V4 MAE', type: 'line', data: hybridError, smooth: true, lineStyle: { color: '#10b981' }, itemStyle: { color: '#10b981' }, areaStyle: { color: 'rgba(16,185,129,0.1)' } }
+        ]
     });
-
-    window.addEventListener('resize', () => chart.resize());
 };
-
-onMounted(fetchMetrics);
 </script>
 
 <style scoped>
 .evaluation-page {
-  padding: 2.5rem;
-  max-width: 1400px;
-  margin: 0 auto;
+  padding: 2rem;
 }
 
-.page-header {
+.eval-dashboard {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  margin-bottom: 3rem;
-}
-
-.version-badge {
-  padding: 0.5rem 1rem;
-  border-radius: 2rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--primary);
-  border: 1px solid var(--primary-glow);
+  flex-direction: column;
+  gap: 2rem;
 }
 
 .summary-cards {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr;
   gap: 1.5rem;
-  margin-bottom: 1.5rem;
 }
 
 .hero-card {
   padding: 2rem;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
-  border: 1px solid var(--primary-glow);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(30, 41, 59, 0.4) 100%);
 }
 
-.hero-label { font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
-.hero-value-group { display: flex; align-items: center; gap: 1.5rem; margin: 1rem 0; }
-.main-lift { font-size: 4rem; font-weight: 900; letter-spacing: -0.05em; }
-.lift-icon { filter: drop-shadow(0 0 10px var(--success)); }
-.hero-desc { color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; max-width: 80%; }
+.hero-label {
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
 
-.stat-card { padding: 1.5rem; }
-.live-eval-card { position: relative; overflow: hidden; }
-.live-eval-card.no-data { opacity: 0.8; }
-.stat-value { font-size: 2.5rem; font-weight: 800; color: var(--text); }
-.live-subtitle { font-size: 0.85rem; color: var(--text-muted); margin: -0.25rem 0 1rem; }
-.live-meta { display: flex; gap: 1rem; font-size: 0.8rem; border-top: 1px solid var(--border); padding-top: 0.75rem; }
-.live-meta span { color: var(--text-muted); }
-.live-meta b { color: var(--text); }
-.empty-live { padding: 1rem 0; text-align: center; color: var(--text-muted); }
+.hero-value-group {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
 
-.card-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; font-weight: 600; color: var(--text-muted); }
-.stat-value { font-size: 2.5rem; font-weight: 800; color: var(--text); }
-.stat-meta { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem; }
+.main-lift {
+  font-size: 3.5rem;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+}
+
+.lift-icon {
+  opacity: 0.8;
+}
+
+.hero-desc {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  max-width: 400px;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0.5rem 0;
+}
+
+.stat-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
 
 .diagnostics-grid {
   display: grid;
-  grid-template-columns: 1fr 400px;
+  grid-template-columns: 2fr 1fr;
   gap: 1.5rem;
-  margin-bottom: 1.5rem;
 }
 
-.echart-container { height: 400px; }
+.echart-container {
+  height: 400px;
+  width: 100%;
+}
 
-.params-list { margin-top: 1rem; }
+.params-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
 .param-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.875rem 0;
-  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
 }
-.param-row:last-child { border-bottom: none; }
-.param-row span { color: var(--text-muted); font-size: 0.9rem; }
 
-.badge { padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
-.badge.primary { background: var(--primary-glow); color: var(--primary); }
-.code-badge { font-family: monospace; background: var(--bg); padding: 0.2rem 0.4rem; border-radius: 4px; border: 1px solid var(--border); }
+.badge {
+  padding: 0.2rem 0.6rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
 
-.blend-optimization { margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border); }
-.blend-optimization h4 { margin-bottom: 1rem; color: var(--text-muted); }
-.blend-visual { margin-top: 1.5rem; }
-.blend-bar { height: 12px; border-radius: 6px; overflow: hidden; display: flex; background: var(--border); }
-.segment.hybrid { background: var(--primary); box-shadow: 0 0 15px var(--primary-glow); }
-.segment.xgb { background: var(--text-muted); opacity: 0.3; }
-.blend-legend { display: flex; justify-content: space-between; margin-top: 0.75rem; font-size: 0.8rem; color: var(--text-muted); }
+.badge.primary { background: rgba(99, 102, 241, 0.1); color: #818cf8; }
 
-.loss-chips { display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap; }
-.loss-chip { background: var(--bg); padding: 0.5rem 1rem; border-radius: 0.75rem; border: 1px solid var(--border); display: flex; flex-direction: column; }
-.loss-chip .seed { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; }
-.loss-chip .val { font-family: monospace; font-weight: 600; color: var(--primary); }
+.loss-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
 
-.loading-full { height: 60vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2rem; }
-.spinner-large { width: 60px; height: 60px; border: 4px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+.loss-chip {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
 
-@keyframes spin { to { transform: rotate(360deg); } }
+.loss-chip .seed { font-size: 0.7rem; color: var(--text-muted); }
+.loss-chip .val { font-size: 0.9rem; font-weight: 600; font-family: monospace; }
 
-.primary-text { color: var(--primary); }
-.warning-text { color: var(--warning); }
+.loading-full {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  gap: 1.5rem;
+}
+
 .success { color: var(--success); }
+.warning-text { color: var(--warning); }
+
+@media (max-width: 1024px) {
+  .summary-cards, .diagnostics-grid {
+    grid-template-columns: 1fr;
+  }
+}
 </style>
