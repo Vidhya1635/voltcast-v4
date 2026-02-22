@@ -284,7 +284,29 @@ def get_live_evaluation():
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    return jsonify({"status": "healthy", "model_loaded": model_manager.loaded})
+    # Proactively trigger lazy loading if not done
+    # This helps pre-heat the server when the frontend first opens
+    try:
+        if model_manager.loaded:
+            ready = True
+        else:
+            # We don't wait for it to finish in health check to avoid blocking
+            # but we can trigger the load. Note: In a free tier, 
+            # this might still be slow, but it gets the process started.
+            from threading import Thread
+            def warm_up():
+                get_history_data()
+                model_manager.load()
+            Thread(target=warm_up).start()
+            ready = False
+            
+        return jsonify({
+            "status": "healthy", 
+            "model_ready": ready,
+            "warming_up": not ready
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 if __name__ == '__main__':
