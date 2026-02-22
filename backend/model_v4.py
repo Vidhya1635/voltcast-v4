@@ -88,35 +88,35 @@ class ModelV4Manager:
         print("🚀 Loading V4 Hybrid Model components...")
         
         # ── HF Hub Integration ──────────────────────────────────────────
-        # Try to get repo_id, with a hardcoded fallback for safer deployment
+        global CONFIG_PATH, FEATURE_SCALER_PATH, TARGET_SCALER_PATH, XGB_MODEL_PATH, DL_MODEL_PATHS
         repo_id = (os.environ.get('HF_REPO_ID') or "vidhyaramu/voltcast-v4").strip()
         
-        if repo_id:
+        # Check if we should skip network sync (saves 3-5 seconds on cold start)
+        already_synced = os.path.exists(XGB_MODEL_PATH) and os.path.getsize(XGB_MODEL_PATH) > 1000
+        
+        if repo_id and not already_synced:
             from huggingface_hub import hf_hub_download
-            print(f"📦 HuggingFace ID: '{repo_id}'. Syncing weights...")
+            print(f"📦 First-time Cloud Sync for '{repo_id}'...")
             try:
-                # Update local paths to HF downloaded cache
-                global CONFIG_PATH, FEATURE_SCALER_PATH, TARGET_SCALER_PATH, XGB_MODEL_PATH, DL_MODEL_PATHS
-                
+                # Fetch all core artifacts
                 CONFIG_PATH = hf_hub_download(repo_id=repo_id, filename="config.joblib")
                 FEATURE_SCALER_PATH = hf_hub_download(repo_id=repo_id, filename="feature_scaler.joblib")
                 TARGET_SCALER_PATH = hf_hub_download(repo_id=repo_id, filename="target_scaler.joblib")
                 XGB_MODEL_PATH = hf_hub_download(repo_id=repo_id, filename="xgb_v4.joblib")
                 
-                print(f"✅ Core models pulled. Syncing ensemble...")
-                
-                # Sync DL ensemble
+                # Fetch ensemble
                 new_dl_paths = []
                 for i in range(len(DL_MODEL_PATHS)):
                     fname = f"residual_ensemble_seed_{i}.pth"
                     new_dl_paths.append(hf_hub_download(repo_id=repo_id, filename=fname))
                 DL_MODEL_PATHS = new_dl_paths
-                print("✨ All cloud weights synchronized.")
+                print("✨ Cloud weights synchronized.")
             except Exception as e:
-                print(f"⚠️ HuggingFace Sync failed: {e}")
-                print("🔍 Falling back to local files (might fail in production).")
+                print(f"⚠️ Sync skipped: {e}")
+        elif already_synced:
+            print("🚀 Using cached weights (Turbo Load).")
         else:
-            print("ℹ️ No HF_REPO_ID found in environment variables. Using local paths.")
+            print("ℹ️ No HF_REPO_ID found. Using local paths.")
 
         # 1. Load config and scalers
         self.config = joblib.load(CONFIG_PATH)
