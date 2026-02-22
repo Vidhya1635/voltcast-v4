@@ -118,20 +118,26 @@ class ModelV4Manager:
         else:
             print("ℹ️ No HF_REPO_ID found. Using local paths.")
 
+        import time, gc
+        
         # 1. Load config and scalers
         self.config = joblib.load(CONFIG_PATH)
         self.feature_scaler = joblib.load(FEATURE_SCALER_PATH)
         self.target_scaler = joblib.load(TARGET_SCALER_PATH)
-        
+        print("📊 Scalers ready...")
+        gc.collect()
+        time.sleep(1) # Let server breathe
+
         # 2. Load XGBoost
         self.xgb_model = joblib.load(XGB_MODEL_PATH)
-        
-        import gc
+        print("🌲 XGBoost ready...")
         gc.collect()
+        time.sleep(2) # XGB is heavy, wait longer
 
         # 3. Load DL Ensemble (3 models)
-        n_feat_aug = self.config['N_FEATURES'] + 1 # +1 for XGBoost prediction
-        for path in DL_MODEL_PATHS:
+        # Load them one-by-one with pauses
+        n_feat_aug = self.config['N_FEATURES'] + 1 
+        for i, path in enumerate(DL_MODEL_PATHS):
             model = ResidualPredictor(
                 n_features=n_feat_aug,
                 pred_len=self.config['OUTPUT_LEN']
@@ -139,10 +145,12 @@ class ModelV4Manager:
             model.load_state_dict(torch.load(path, map_location=self.device, weights_only=True))
             model.eval()
             self.dl_ensemble.append(model)
-            gc.collect() # Force clear after each sub-model
+            print(f"🧠 DL Model {i+1}/3 ready...")
+            gc.collect()
+            time.sleep(1.5) # Protect against OOM spike
             
         self.loaded = True
-        print("✅ All models loaded successfully. Memory cleared.")
+        print("✅ Engine Fully Synchronized.")
         gc.collect()
 
     def predict(self, X_window_raw):
