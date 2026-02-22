@@ -21,19 +21,22 @@ from config import PREPROCESSED_CSV, MODEL_DIR
 app = Flask(__name__)
 CORS(app)
 
-# ── Initialization ───────────────────────────────────────────────────
+# ── Initialization (Lazy) ───────────────────────────────────────────
+history_df_full = None
 
-# Load historical data once at startup (for demo purposes)
-print("🕒 Loading historical dataset...")
-history_df_full = pd.read_csv(PREPROCESSED_CSV)
-history_df_full['Timestamp'] = pd.to_datetime(history_df_full['Timestamp'])
-print(f"✅ History loaded: {len(history_df_full)} rows")
+def get_history_data():
+    global history_df_full
+    if history_df_full is None:
+        print("🕒 Loading historical dataset (Lazy)...")
+        history_df_full = pd.read_csv(PREPROCESSED_CSV)
+        history_df_full['Timestamp'] = pd.to_datetime(history_df_full['Timestamp'])
+    return history_df_full
 
 # Initialize database
 db.init_db()
 
-# Preheat model
-model_manager.load()
+# Model manager is global, but we will call .load() inside functions
+# instead of at startup to save memory on boot.
 
 # ── Endpoints ────────────────────────────────────────────────────────
 
@@ -60,29 +63,30 @@ def live_forecast():
 def run_forecast_logic(req_start, temp_offset=0):
     """Core forecasting engine used by both endpoints."""
     # 1. Validation & Windowing
+    history_df = get_history_data()
     input_start = req_start - timedelta(hours=168)
-    history_window = history_df_full[
-        (history_df_full['Timestamp'] >= input_start) & 
-        (history_df_full['Timestamp'] < req_start)
+    history_window = history_df[
+        (history_df['Timestamp'] >= input_start) & 
+        (history_df['Timestamp'] < req_start)
     ].copy()
     
     # 1b. Fallback for future dates (like 2026)
     if len(history_window) < 168:
-        latest_year = history_df_full['Timestamp'].dt.year.max()
+        latest_year = history_df['Timestamp'].dt.year.max()
         try:
             fallback_start = req_start.replace(year=latest_year)
             input_start = fallback_start - timedelta(hours=168)
-            history_window = history_df_full[
-                (history_df_full['Timestamp'] >= input_start) & 
-                (history_df_full['Timestamp'] < fallback_start)
+            history_window = history_df[
+                (history_df['Timestamp'] >= input_start) & 
+                (history_df['Timestamp'] < fallback_start)
             ].copy()
             if len(history_window) == 168:
                 req_start = fallback_start
             else:
-                history_window = history_df_full.tail(168).copy()
+                history_window = history_df.tail(168).copy()
                 req_start = history_window['Timestamp'].iloc[-1] + timedelta(hours=1)
         except:
-            history_window = history_df_full.tail(168).copy()
+            history_window = history_df.tail(168).copy()
             req_start = history_window['Timestamp'].iloc[-1] + timedelta(hours=1)
 
     # 2. Setup DB Request
@@ -94,6 +98,9 @@ def run_forecast_logic(req_start, temp_offset=0):
     )
 
     try:
+        # Load models lazily if not already done
+        model_manager.load()
+        
         # 3. Weather & What-If
         weather_forecast = weather.fetch_weather_forecast(req_start, hours=168)
         if temp_offset != 0:
@@ -135,9 +142,9 @@ def run_forecast_logic(req_start, temp_offset=0):
         db.save_forecast_results(req_id, final_results)
         
         # 7. Contextual data
-        ground_truth = history_df_full[
-            (history_df_full['Timestamp'] >= req_start) & 
-            (history_df_full['Timestamp'] < req_start + timedelta(hours=168))
+        ground_truth = history_df[
+            (history_df['Timestamp'] >= req_start) & 
+            (history_df['Timestamp'] < req_start + timedelta(hours=168))
         ].copy()
         if not ground_truth.empty:
             ground_truth['Timestamp'] = ground_truth['Timestamp'].dt.strftime('%Y-%m-%dT%H:%M:%S')
@@ -243,13 +250,14 @@ def get_live_evaluation():
     # We'll calculate performance of the latest 10 requests that have ground truth
     combined_actuals = []
     combined_preds = []
+    history_df = get_history_data()
     
     for req in all_requests[:10]:
         details = db.get_request_with_results(req['id'])
         for r in details['results']:
             ts = pd.to_datetime(r['timestamp'])
-            # Match with history_df_full
-            actual = history_df_full[history_df_full['Timestamp'] == ts]
+            # Match with history_df
+            actual = history_df[history_df['Timestamp'] == ts]
             if not actual.empty:
                 combined_actuals.append(actual['load'].values[0])
                 combined_preds.append(r['predicted_load'])
