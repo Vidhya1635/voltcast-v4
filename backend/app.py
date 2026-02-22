@@ -23,16 +23,21 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # ── Initialization (Lazy) ───────────────────────────────────────────
 history_df_full = None
+is_loading = False # Prevent race condition in warm_up
 
 def get_history_data():
     global history_df_full
     if history_df_full is None:
         import gc
-        print("🕒 Loading historical dataset (Memory Optimized)...")
-        # Load with specific dtypes to save 50% memory
-        history_df_full = pd.read_csv(PREPROCESSED_CSV)
+        print("🕒 Loading recent historical data (Memory Optimized)...")
+        # Load only the last 10k rows (~1.5 years) instead of 70k (8 years)
+        # This saves ~100MB of RAM at runtime
+        total_rows = 70000 
+        skip = max(0, total_rows - 10000)
         
-        # Optimize types: int64/float64 -> int32/float32
+        history_df_full = pd.read_csv(PREPROCESSED_CSV, skiprows=range(1, skip))
+        
+        # Optimize types
         for col in history_df_full.select_dtypes(include=['float64']).columns:
             history_df_full[col] = history_df_full[col].astype('float32')
         for col in history_df_full.select_dtypes(include=['int64']).columns:
@@ -40,7 +45,7 @@ def get_history_data():
             
         history_df_full['Timestamp'] = pd.to_datetime(history_df_full['Timestamp'])
         gc.collect() 
-        print(f"✅ Data loaded. Memory usage: ~{history_df_full.memory_usage().sum() / 1e6:.1f} MB")
+        print(f"✅ Recent data loaded. Horizon: {len(history_df_full)} rows.")
     return history_df_full
 
 # Initialize database
@@ -295,20 +300,24 @@ def get_live_evaluation():
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    # Proactively trigger lazy loading if not done
-    # This helps pre-heat the server when the frontend first opens
+    global is_loading
     try:
         if model_manager.loaded:
             ready = True
-        else:
-            # We don't wait for it to finish in health check to avoid blocking
-            # but we can trigger the load. Note: In a free tier, 
-            # this might still be slow, but it gets the process started.
+        elif not is_loading:
             from threading import Thread
             def warm_up():
-                get_history_data()
-                model_manager.load()
+                global is_loading
+                is_loading = True
+                try:
+                    get_history_data()
+                    model_manager.load()
+                finally:
+                    is_loading = False
+            
             Thread(target=warm_up).start()
+            ready = False
+        else:
             ready = False
             
         return jsonify({
