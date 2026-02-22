@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const getBaseUrl = () => {
     // If we have a hardcoded production API URL, use it
-    const prodUrl = 'https://voltcast-backend.onrender.com'; // Change this after deploying to Render
+    const prodUrl = 'https://voltcast-v4.onrender.com'; // Your live Render link
 
     if (import.meta.env.PROD) return prodUrl;
 
