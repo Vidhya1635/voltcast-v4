@@ -88,12 +88,12 @@ class ModelV4Manager:
         print("🚀 Loading V4 Hybrid Model components...")
         
         # ── HF Hub Integration ──────────────────────────────────────────
-        # Try to get repo_id, stripping any accidental whitespace from Render UI
-        repo_id = (os.environ.get('HF_REPO_ID') or "").strip()
+        # Try to get repo_id, with a hardcoded fallback for safer deployment
+        repo_id = (os.environ.get('HF_REPO_ID') or "vidhyaramu/voltcast-v4").strip()
         
         if repo_id:
             from huggingface_hub import hf_hub_download
-            print(f"📦 HuggingFace ID found: '{repo_id}'. Pulling weights...")
+            print(f"📦 HuggingFace ID: '{repo_id}'. Syncing weights...")
             try:
                 # Update local paths to HF downloaded cache
                 global CONFIG_PATH, FEATURE_SCALER_PATH, TARGET_SCALER_PATH, XGB_MODEL_PATH, DL_MODEL_PATHS
