@@ -19,7 +19,7 @@ from model_v4 import model_manager
 from config import PREPROCESSED_CSV, MODEL_DIR
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # ── Initialization (Lazy) ───────────────────────────────────────────
 history_df_full = None
