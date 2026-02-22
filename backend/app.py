@@ -27,9 +27,20 @@ history_df_full = None
 def get_history_data():
     global history_df_full
     if history_df_full is None:
-        print("🕒 Loading historical dataset (Lazy)...")
+        import gc
+        print("🕒 Loading historical dataset (Memory Optimized)...")
+        # Load with specific dtypes to save 50% memory
         history_df_full = pd.read_csv(PREPROCESSED_CSV)
+        
+        # Optimize types: int64/float64 -> int32/float32
+        for col in history_df_full.select_dtypes(include=['float64']).columns:
+            history_df_full[col] = history_df_full[col].astype('float32')
+        for col in history_df_full.select_dtypes(include=['int64']).columns:
+            history_df_full[col] = history_df_full[col].astype('int32')
+            
         history_df_full['Timestamp'] = pd.to_datetime(history_df_full['Timestamp'])
+        gc.collect() 
+        print(f"✅ Data loaded. Memory usage: ~{history_df_full.memory_usage().sum() / 1e6:.1f} MB")
     return history_df_full
 
 # Initialize database

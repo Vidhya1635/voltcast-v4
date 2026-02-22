@@ -126,6 +126,9 @@ class ModelV4Manager:
         # 2. Load XGBoost
         self.xgb_model = joblib.load(XGB_MODEL_PATH)
         
+        import gc
+        gc.collect()
+
         # 3. Load DL Ensemble (3 models)
         n_feat_aug = self.config['N_FEATURES'] + 1 # +1 for XGBoost prediction
         for path in DL_MODEL_PATHS:
@@ -136,9 +139,11 @@ class ModelV4Manager:
             model.load_state_dict(torch.load(path, map_location=self.device, weights_only=True))
             model.eval()
             self.dl_ensemble.append(model)
+            gc.collect() # Force clear after each sub-model
             
         self.loaded = True
-        print("✅ All models loaded successfully")
+        print("✅ All models loaded successfully. Memory cleared.")
+        gc.collect()
 
     def predict(self, X_window_raw):
         """
