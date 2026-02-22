@@ -37,8 +37,8 @@
     
     <div class="status-indicator">
       <div class="status-pill">
-        <div class="dot" :class="{ online: isOnline }"></div>
-        <span>Backend: {{ isOnline ? 'Online' : 'Offline' }}</span>
+        <div class="dot" :class="status"></div>
+        <span>{{ getStatusText(status) }}</span>
       </div>
     </div>
   </aside>
@@ -52,15 +52,26 @@ import {
 } from 'lucide-vue-next';
 import api from '@/api';
 
-const isOnline = ref(false);
+const status = ref('offline'); // 'online', 'warming', 'offline', 'error'
 
 const checkBackend = async () => {
   try {
-    const res = await api.get('/api/health');
-    isOnline.value = res.data.status === 'healthy';
-  } catch {
-    isOnline.value = false;
+    const res = await api.get('/api/health', { timeout: 10000 });
+    if (res.data.status === 'healthy') {
+      status.value = res.data.model_ready ? 'online' : 'warming';
+    } else {
+      status.value = 'error';
+    }
+  } catch (err) {
+    status.value = 'offline';
   }
+};
+
+const getStatusText = (s) => {
+    if (s === 'online') return 'Backend: Online';
+    if (s === 'warming') return 'Backend: Warming Up...';
+    if (s === 'error') return 'Backend: Error';
+    return 'Backend: Offline';
 };
 
 onMounted(() => {
@@ -171,6 +182,9 @@ onMounted(() => {
   border-radius: 50%;
   background: var(--text-muted);
 }
+.dot.online { background: var(--success); box-shadow: 0 0 8px var(--success); }
+.dot.warming { background: var(--warning); box-shadow: 0 0 8px var(--warning); }
+.dot.error { background: var(--accent); }
 
 @media (max-width: 768px) {
   .sidebar {
