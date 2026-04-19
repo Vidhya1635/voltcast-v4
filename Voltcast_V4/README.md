@@ -1,52 +1,73 @@
 # VoltCast V4 - Hybrid Regional Electricity Load Forecasting
 
-## Overview
-VoltCast V4 is an advanced, hybrid deep learning and machine learning application designed to forecast regional electricity loads (ISO-NE) with high precision. It leverages an ensemble blending strategy (85% PyTorch Deep Learning / 15% XGBoost) that mathematically unifies neural networks trained on diverse random seeds with highly optimized decision trees.
+![Status](https://img.shields.io/badge/Status-Complete-green)
+![Tech](https://img.shields.io/badge/Tech-PyTorch%20%7C%20XGBoost%20%7C%20Vue3-blue)
 
-## Directory Structure
-- **`/backend`**: The Flask REST API that loads the models, processes live weather via external APIs, and generates dynamic 7-day load forecasts.
-- **`/frontend`**: The Vite + Vue 3 dashboard UI, which presents interactive forecast charts and metrics.
-- **`/models` & `/models/v4`**: The fully trained AI weights (`.pt` PyTorch files and `.pkl` XGBoost/Scaler files).
-- **`/data` & `/raw_data`**: The reliable, gold-standard ISO-NE load datasets used to construct and train the models.
-- **`/database`**: SQLite cached forecasting data.
-- **`/notebook` & `/dataprocessing_notebook`**: Jupyter notebooks detailing the data cleaning, exploratory analysis, and AI model training processes.
+## 📌 The Problem Statement
+Regional electricity grids face constant volatility due to changing weather patterns, industrial demand, and domestic consumption. **Inaccurate load forecasting** leads to:
+*   **Grid Instability:** Risk of blackouts or surges.
+*   **Economic Inefficiency:** High costs from over-purchasing energy or emergency generation.
+*   **Sustainability Challenges:** Difficulty in integrating renewable energy sources without stable demand predictions.
 
-## Requirements
-This project requires **Node.js** (for the frontend) and **Python 3.9+** (for the backend and AI models).
+## 💡 The Solution: VoltCast V4
+**VoltCast V4** solves this by implementing an **Advanced Hybrid Ensemble Strategy** to forecast ISO-NE (New England) electricity loads. Instead of relying on a single model, it mathematically blends two distinct AI architectures:
 
-## Setup & Run Instructions
+1.  **PyTorch Deep Learning (85% Weighting):** Captures complex temporal dependencies and non-linear patterns.
+2.  **XGBoost Gradient Boosting (15% Weighting):** Handles sharp variance and residual errors with highly optimized decision trees.
 
-### 1. Backend API (Python Environment)
-1. Open a terminal in the main project directory.
-2. (Optional but recommended) Create and activate a Python virtual environment.
-3. Install the required Python packages:
-   ```bash
-   pip install -r requirements.txt
-   ```
-4. Start the backend Flask API:
-   ```bash
-   cd backend
-   python app.py
-   ```
-   *The backend will boot up at `http://127.0.0.1:5000/`*
+### 🚀 Key Innovations
+*   **Residual Error Correction:** The XGBoost layer specifically targets the errors made by the Deep Learning model.
+*   **Real-time Weather Integration:** Dynamically fetches weather features to adjust forecasts on the fly.
+*   **Intuitive Dashboard:** A professional Vue 3 UI that allows operators to visualize 7-day windows and model performance metrics.
 
-### 2. Frontend Dashboard (Vue Environment)
-1. Open a **new, separate** terminal and navigate to the `frontend` directory:
-   ```bash
-   cd frontend
-   ```
-2. Install the necessary Node packages (this creates the `node_modules` folder):
-   ```bash
-   npm install
-   ```
-3. Start the Vite development server:
-   ```bash
-   npm run dev
-   ```
-   *The fully functioning dashboard will instantly launch at `http://localhost:5173/`*
+---
 
-## Validating Model Training (Optional)
-If you wish to view how the ISO-NE dataset was utilized and how the AI models were built and trained:
-1. Ensure the Python `requirements.txt` dependencies are installed from above.
-2. Run `jupyter notebook` in your terminal at the root directory.
-3. Navigate into the `notebook/` folder or `dataprocessing_notebook/` to explore the training pipelines.
+## 📂 Project Architecture
+```text
+Voltcast_v4/
+├── backend/                # Flask REST API & Forecasting Logic
+├── frontend/               # Vue 3 + Vite Dashboard UI
+├── models/                 # Pre-trainedWeights (.pt, .pkl)
+├── data/                   # Gold-standard processed datasets
+├── notebook/               # Model development & Training logs
+└── raw_data/               # Source ISO-NE datasets
+```
+
+---
+
+## 🛠️ Requirements & Quick Start
+
+### Prerequisites
+*   **Python 3.9+** (For AI models & Backend)
+*   **Node.js 16+** (For Dashboard UI)
+*   **Git** (For version control)
+
+### 1. Launch the Backend (AI Engine)
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Start the server
+cd backend
+python app.py
+```
+*API running at: `http://127.0.0.1:5000/`*
+
+### 2. Launch the Frontend (Dashboard)
+```bash
+# Navigate to frontend
+cd frontend
+
+# Install & Run
+npm install
+npm run dev
+```
+*Dashboard running at: `http://localhost:5173/`*
+
+---
+
+## 📈 Performance & Results
+The Hybrid V4 model achieved significant MAE and RMSE reductions compared to baseline LSTM and XGBoost models. Detailed training logs and comparison charts can be found in the `notebook/` directory.
+
+---
+*Developed by Vidhya as part of the Python Projects Portfolio.*
