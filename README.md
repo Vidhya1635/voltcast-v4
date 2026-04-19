@@ -34,7 +34,7 @@ Welcome to my personal collection of Python-based engineering and data science p
 
 ## 📬 Contact & Links
 - **GitHub:** [Vidhya1635](https://github.com/Vidhya1635)
-- **LinkedIn:** [Insert your LinkedIn Link here]
+- **LinkedIn:** [Vidhya R](https://www.linkedin.com/in/vidhya-r-801839283/)
 
 ---
 *Created with passion by Vidhya.*
