@@ -1,0 +1,16 @@
+flask
+flask-cors
+pandas
+numpy
+torch --extra-index-url https://download.pytorch.org/whl/cpu
+xgboost
+joblib
+requests
+scikit-learn
+python-dateutil
+gunicorn
+huggingface_hub
+jupyter
+matplotlib
+seaborn
+tqdm
